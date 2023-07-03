@@ -5,12 +5,10 @@
 #include "imgui_impl_vulkan.h"
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
-#define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+// #define GLFW_INCLUDE_NONE
+// #define GLFW_INCLUDE_VULKAN
+// #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
-
-#include <stdexcept>
 
 // #include <vulkan/vulkan_beta.h>
 
@@ -41,10 +39,6 @@ static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int g_MinImageCount = 2;
 static bool g_SwapChainRebuild = false;
 
-static void glfw_error_callback(int error, const char *description)
-{
-    fprintf(stderr, "GLFW Error %d: %s\n", error, description);
-}
 static void check_vk_result(VkResult err)
 {
     if (err == 0)
@@ -382,6 +376,7 @@ static void FramePresent(ImGui_ImplVulkanH_Window *wd)
 }
 
 Application::Application()
+    : m_window(new Window())
 {
 }
 
@@ -391,34 +386,20 @@ Application::~Application()
 
 void Application::Run()
 {
-    glfwSetErrorCallback(glfw_error_callback);
-    if (!glfwInit())
-        throw std::runtime_error("GLFW: Failed to initialize!");
-
-    // Create window with Vulkan context
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow *window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+Vulkan example", nullptr, nullptr);
-    if (!glfwVulkanSupported())
-    {
-        printf("GLFW: Vulkan Not Supported\n");
-        throw std::runtime_error("GLFW: Vulkan Not Supported!");
-    }
-
     ImVector<const char *> extensions;
-    uint32_t extensions_count = 0;
-    const char **glfw_extensions = glfwGetRequiredInstanceExtensions(&extensions_count);
+    auto [glfw_extensions, extensions_count] = Window::GetInstanceExtensions();
     for (uint32_t i = 0; i < extensions_count; i++)
         extensions.push_back(glfw_extensions[i]);
     SetupVulkan(extensions);
 
     // Create Window Surface
     VkSurfaceKHR surface;
-    VkResult err = glfwCreateWindowSurface(g_Instance, window, g_Allocator, &surface);
+    VkResult err = glfwCreateWindowSurface(g_Instance, m_window->GetWindow(), g_Allocator, &surface);
     check_vk_result(err);
 
     // Create Framebuffers
     int w, h;
-    glfwGetFramebufferSize(window, &w, &h);
+    glfwGetFramebufferSize(m_window->GetWindow(), &w, &h);
     ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
     SetupVulkanWindow(wd, surface, w, h);
 
@@ -435,7 +416,7 @@ void Application::Run()
     // ImGui::StyleColorsLight();
 
     // Setup Platform/Renderer backends
-    ImGui_ImplGlfw_InitForVulkan(window, true);
+    ImGui_ImplGlfw_InitForVulkan(m_window->GetWindow(), true);
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.Instance = g_Instance;
     init_info.PhysicalDevice = g_PhysicalDevice;
@@ -504,7 +485,7 @@ void Application::Run()
     ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
     // Main loop
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(m_window->GetWindow()))
     {
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to tell if dear imgui wants to use your inputs.
@@ -517,7 +498,7 @@ void Application::Run()
         if (g_SwapChainRebuild)
         {
             int width, height;
-            glfwGetFramebufferSize(window, &width, &height);
+            glfwGetFramebufferSize(m_window->GetWindow(), &width, &height);
             if (width > 0 && height > 0)
             {
                 ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
@@ -594,6 +575,6 @@ void Application::Run()
     CleanupVulkanWindow();
     CleanupVulkan();
 
-    glfwDestroyWindow(window);
+    // glfwDestroyWindow();
     glfwTerminate();
 }

@@ -1,4 +1,5 @@
 #pragma once
+#include "Window.hpp"
 
 class Application
 {
@@ -7,4 +8,7 @@ public:
     ~Application();
 
     void Run();
+
+private:
+    Window *m_window;
 };
