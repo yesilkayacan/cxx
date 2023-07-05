@@ -1,5 +1,6 @@
 #pragma once
 #include "Window.hpp"
+#include "GuiRenderer.hpp"
 
 class Application
 {
@@ -11,4 +12,5 @@ public:
 
 private:
     Window *m_window;
+    GuiRenderer *m_guiRenderer;
 };
