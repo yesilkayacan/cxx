@@ -48,7 +48,6 @@ set(FILES_SRC
    ${SRC_DIR}/Application.cpp
    ${SRC_DIR}/Window.cpp
    ${SRC_DIR}/GuiRenderer.cpp
-   ${SRC_DIR}/Renderer/RendererBase.cpp
    )
 
 add_executable(app ${CMAKE_CURRENT_SOURCE_DIR}/apps/main.cpp ${FILES_SRC} ${IMGUI_FILES})
