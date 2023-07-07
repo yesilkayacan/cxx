@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Renderer/RendererBase.hpp"
+
 #include "imgui_impl_vulkan.h"
 #include <vulkan/vulkan.h>
 #include "Window.hpp"
 
-class GuiRenderer
+class GuiRenderer : public RendererBase
 {
 public:
     GuiRenderer(const Window &window);
@@ -15,7 +17,7 @@ public:
 
 private:
     VkPhysicalDevice SetupVulkan_SelectPhysicalDevice();
-    void SetupVulkan(ImVector<const char *> instance_extensions);
+    void SetupVulkan();
     void SetupVulkanWindow(ImGui_ImplVulkanH_Window *wd,
                            VkSurfaceKHR surface,
                            int width,
@@ -27,7 +29,7 @@ private:
 
     // Data
     VkAllocationCallbacks *g_Allocator = nullptr;
-    VkInstance g_Instance = VK_NULL_HANDLE;
+    // VkInstance g_Instance = VK_NULL_HANDLE;
     VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
     VkDevice g_Device = VK_NULL_HANDLE;
     uint32_t g_QueueFamily = (uint32_t)-1;
@@ -40,5 +42,5 @@ private:
     int g_MinImageCount = 2;
     bool g_SwapChainRebuild = false;
 
-    const Window &m_window;
+    // const Window &m_window;
 };

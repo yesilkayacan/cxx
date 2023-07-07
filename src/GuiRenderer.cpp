@@ -3,24 +3,16 @@
 #include "Renderer/Core.hpp"
 #include "imgui_impl_glfw.h"
 
-static bool IsExtensionAvailable(const ImVector<VkExtensionProperties> &properties, const char *extension)
-{
-    for (const VkExtensionProperties &p : properties)
-        if (strcmp(p.extensionName, extension) == 0)
-            return true;
-    return false;
-}
-
 VkPhysicalDevice GuiRenderer::SetupVulkan_SelectPhysicalDevice()
 {
     uint32_t gpu_count;
-    VkResult err = vkEnumeratePhysicalDevices(g_Instance, &gpu_count, nullptr);
+    VkResult err = vkEnumeratePhysicalDevices(m_instance, &gpu_count, nullptr);
     Core::VkCheck(err);
     IM_ASSERT(gpu_count > 0);
 
     ImVector<VkPhysicalDevice> gpus;
     gpus.resize(gpu_count);
-    err = vkEnumeratePhysicalDevices(g_Instance, &gpu_count, gpus.Data);
+    err = vkEnumeratePhysicalDevices(m_instance, &gpu_count, gpus.Data);
     Core::VkCheck(err);
 
     // If a number >1 of GPUs got reported, find discrete GPU if present, or use first one available. This covers
@@ -50,68 +42,16 @@ void GuiRenderer::SwapChainRebuild()
         if (width > 0 && height > 0)
         {
             ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-            ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
+            ImGui_ImplVulkanH_CreateOrResizeWindow(m_instance, g_PhysicalDevice, g_Device, &g_MainWindowData, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
             g_MainWindowData.FrameIndex = 0;
             g_SwapChainRebuild = false;
         }
     }
 }
 
-void GuiRenderer::SetupVulkan(ImVector<const char *> instance_extensions)
+void GuiRenderer::SetupVulkan()
 {
     VkResult err;
-
-    // Create Vulkan Instance
-    {
-        VkInstanceCreateInfo create_info = {};
-        create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-
-        // Enumerate available extensions
-        uint32_t properties_count;
-        ImVector<VkExtensionProperties> properties;
-        vkEnumerateInstanceExtensionProperties(nullptr, &properties_count, nullptr);
-        properties.resize(properties_count);
-        err = vkEnumerateInstanceExtensionProperties(nullptr, &properties_count, properties.Data);
-        Core::VkCheck(err);
-
-        // Enable required extensions
-        if (IsExtensionAvailable(properties, VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME))
-            instance_extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
-#ifdef VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
-        if (IsExtensionAvailable(properties, VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME))
-        {
-            instance_extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
-            create_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
-        }
-#endif
-
-        // Enabling validation layers
-#ifdef IMGUI_VULKAN_DEBUG_REPORT
-        const char *layers[] = {"VK_LAYER_KHRONOS_validation"};
-        create_info.enabledLayerCount = 1;
-        create_info.ppEnabledLayerNames = layers;
-        instance_extensions.push_back("VK_EXT_debug_report");
-#endif
-
-        // Create Vulkan Instance
-        create_info.enabledExtensionCount = (uint32_t)instance_extensions.Size;
-        create_info.ppEnabledExtensionNames = instance_extensions.Data;
-        err = vkCreateInstance(&create_info, g_Allocator, &g_Instance);
-        Core::VkCheck(err);
-
-        // Setup the debug report callback
-#ifdef IMGUI_VULKAN_DEBUG_REPORT
-        auto vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(g_Instance, "vkCreateDebugReportCallbackEXT");
-        IM_ASSERT(vkCreateDebugReportCallbackEXT != nullptr);
-        VkDebugReportCallbackCreateInfoEXT debug_report_ci = {};
-        debug_report_ci.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-        debug_report_ci.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-        debug_report_ci.pfnCallback = debug_report;
-        debug_report_ci.pUserData = nullptr;
-        err = vkCreateDebugReportCallbackEXT(g_Instance, &debug_report_ci, g_Allocator, &g_DebugReport);
-        Core::VkCheck(err);
-#endif
-    }
 
     // Select Physical Device (GPU)
     g_PhysicalDevice = SetupVulkan_SelectPhysicalDevice();
@@ -242,7 +182,7 @@ void GuiRenderer::SetupVulkanWindow(ImGui_ImplVulkanH_Window *wd,
 
     // Create SwapChain, RenderPass, Framebuffer, etc.
     IM_ASSERT(g_MinImageCount >= 2);
-    ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, wd, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
+    ImGui_ImplVulkanH_CreateOrResizeWindow(m_instance, g_PhysicalDevice, g_Device, wd, g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
 }
 
 void GuiRenderer::CleanupVulkan()
@@ -251,17 +191,17 @@ void GuiRenderer::CleanupVulkan()
 
 #ifdef IMGUI_VULKAN_DEBUG_REPORT
     // Remove the debug report callback
-    auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(g_Instance, "vkDestroyDebugReportCallbackEXT");
-    vkDestroyDebugReportCallbackEXT(g_Instance, g_DebugReport, g_Allocator);
+    auto vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(m_instance, "vkDestroyDebugReportCallbackEXT");
+    vkDestroyDebugReportCallbackEXT(m_instance, g_DebugReport, g_Allocator);
 #endif // IMGUI_VULKAN_DEBUG_REPORT
 
     vkDestroyDevice(g_Device, g_Allocator);
-    vkDestroyInstance(g_Instance, g_Allocator);
+    vkDestroyInstance(m_instance, g_Allocator);
 }
 
 void GuiRenderer::CleanupVulkanWindow()
 {
-    ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, g_Allocator);
+    ImGui_ImplVulkanH_DestroyWindow(m_instance, g_Device, &g_MainWindowData, g_Allocator);
 }
 
 void GuiRenderer::FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data)
@@ -354,17 +294,14 @@ void GuiRenderer::FramePresent(ImGui_ImplVulkanH_Window *wd)
 }
 
 GuiRenderer::GuiRenderer(const Window &window)
-    : m_window(window)
+    : RendererBase(window)
 {
-    ImVector<const char *> extensions;
-    auto [glfw_extensions, extensions_count] = Window::GetInstanceExtensions();
-    for (uint32_t i = 0; i < extensions_count; i++)
-        extensions.push_back(glfw_extensions[i]);
-    SetupVulkan(extensions);
+    this->CreateInstance();
+    SetupVulkan();
 
     // Create Window Surface
     VkSurfaceKHR surface;
-    VkResult err = glfwCreateWindowSurface(g_Instance, m_window.GetWindow(), g_Allocator, &surface);
+    VkResult err = glfwCreateWindowSurface(m_instance, m_window.GetWindow(), g_Allocator, &surface);
     Core::VkCheck(err);
 
     // Create Framebuffers
@@ -379,7 +316,7 @@ GuiRenderer::GuiRenderer(const Window &window)
     // Setup Platform/Renderer backends
     ImGui_ImplGlfw_InitForVulkan(m_window.GetWindow(), true);
     ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = g_Instance;
+    init_info.Instance = m_instance;
     init_info.PhysicalDevice = g_PhysicalDevice;
     init_info.Device = g_Device;
     init_info.QueueFamily = g_QueueFamily;
